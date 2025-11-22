@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # --- Shared Infrastructure ---
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  # --- Synchronous Stack ---
+  checkout-sync:
+    build: ./services/checkout
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=SYNC
+      - PAYMENT_SERVICE_URL=http://payment-sync:8000/pay
+    depends_on:
+      - payment-sync
+
+  payment-sync:
+    build: ./services/payment
+    environment:
+      - MODE=SYNC
+
+  # --- Asynchronous Stack ---
+  checkout-async:
+    build: ./services/checkout
+    ports:
+      - "8001:8000"
+    environment:
+      - MODE=ASYNC
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  payment-async:
+    build: ./services/payment
+    environment:
+      - MODE=ASYNC
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # --- Frontend ---
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - checkout-sync
+      - checkout-async

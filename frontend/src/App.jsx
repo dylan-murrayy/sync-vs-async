@@ -3,8 +3,8 @@ import { Activity, Server, ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, Da
 
 function App() {
     const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [lastRequestMode, setLastRequestMode] = useState(null);
+    const [syncLoading, setSyncLoading] = useState(false);
+    const [asyncLoading, setAsyncLoading] = useState(false);
 
     const addLog = (type, duration, status) => {
         const newLog = {
@@ -15,155 +15,221 @@ function App() {
             timestamp: new Date().toLocaleTimeString()
         };
         setLogs(prev => [newLog, ...prev]);
-        setLastRequestMode(type);
     };
 
-    const handleCheckout = async () => {
-        setLoading(true);
+    const handleSyncCheckout = async () => {
+        setSyncLoading(true);
         const startTime = performance.now();
-
         try {
             const response = await fetch('http://localhost:8000/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: `ord-${Date.now()}`, amount: 100 })
+                body: JSON.stringify({ order_id: `sync-${Date.now()}`, amount: 100 })
             });
-
-            if (!response.ok) throw new Error('Request failed');
-
-            const data = await response.json();
+            if (!response.ok) throw new Error('Failed');
+            await response.json();
             const endTime = performance.now();
-            const duration = (endTime - startTime).toFixed(0);
-
-            addLog(duration < 500 ? 'ASYNC' : 'SYNC', duration, 'SUCCESS');
-
-        } catch (error) {
-            const endTime = performance.now();
-            addLog('ERROR', (endTime - startTime).toFixed(0), 'FAILED');
+            addLog('SYNC', (endTime - startTime).toFixed(0), 'SUCCESS');
+        } catch (e) {
+            addLog('SYNC', (performance.now() - startTime).toFixed(0), 'FAILED');
         } finally {
-            setLoading(false);
+            setSyncLoading(false);
+        }
+    };
+
+    const handleAsyncCheckout = async () => {
+        setAsyncLoading(true);
+        const startTime = performance.now();
+        try {
+            const response = await fetch('http://localhost:8001/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: `async-${Date.now()}`, amount: 100 })
+            });
+            if (!response.ok) throw new Error('Failed');
+            await response.json();
+            const endTime = performance.now();
+            addLog('ASYNC', (endTime - startTime).toFixed(0), 'SUCCESS');
+        } catch (e) {
+            addLog('ASYNC', (performance.now() - startTime).toFixed(0), 'FAILED');
+        } finally {
+            setTimeout(() => setAsyncLoading(false), 500); // Keep animation briefly to show "sent"
         }
     };
 
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans text-gray-800">
-            <div className="max-w-5xl mx-auto">
-                <header className="mb-8 text-center">
+            <div className="max-w-6xl mx-auto">
+                <header className="mb-10 text-center">
                     <h1 className="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Sync vs Async Architecture</h1>
-                    <p className="text-gray-500 text-lg">Visualizing the impact of coupling and latency</p>
+                    <p className="text-gray-500 text-lg">Side-by-side Comparison</p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                    {/* Architecture Diagram */}
-                    <div className="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
-                        <div className="absolute top-4 left-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Live Architecture</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
 
-                        <div className="flex items-center justify-between w-full max-w-lg z-10">
-                            {/* Checkout Service */}
-                            <div className="flex flex-col items-center relative group">
-                                <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 ${loading ? 'bg-blue-50 border-2 border-blue-500 scale-105' : 'bg-white border border-gray-200'}`}>
-                                    <Server className={`w-10 h-10 ${loading ? 'text-blue-600' : 'text-gray-400'}`} />
-                                </div>
-                                <span className="mt-4 font-bold text-gray-700">Checkout Service</span>
-                                <span className="text-xs text-gray-400">Producer</span>
-                            </div>
-
-                            {/* Connection / Queue */}
-                            <div className="flex-1 flex flex-col items-center px-4">
-                                {lastRequestMode === 'ASYNC' || (!lastRequestMode && logs.length === 0) ? (
-                                    // Async Visualization
-                                    <div className="flex flex-col items-center w-full">
-                                        <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden relative mb-2">
-                                            {loading && <div className="absolute inset-0 bg-blue-500 animate-progress-fast"></div>}
-                                        </div>
-                                        <div className="w-16 h-16 bg-purple-50 rounded-xl border-2 border-purple-100 flex items-center justify-center mb-2">
-                                            <Layers className="w-8 h-8 text-purple-500" />
-                                        </div>
-                                        <span className="text-xs font-bold text-purple-500 uppercase tracking-wider">RabbitMQ</span>
-                                    </div>
-                                ) : (
-                                    // Sync Visualization
-                                    <div className="flex flex-col items-center w-full">
-                                        <div className={`w-full h-1 rounded-full overflow-hidden relative ${loading ? 'bg-gray-200' : 'bg-gray-100'}`}>
-                                            {loading && <div className="absolute inset-0 bg-orange-500 animate-progress"></div>}
-                                        </div>
-                                        <span className="mt-2 text-xs font-bold text-orange-500 uppercase tracking-wider">HTTP Blocking</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Payment Service */}
-                            <div className="flex flex-col items-center">
-                                <div className="w-24 h-24 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm">
-                                    <Activity className="w-10 h-10 text-gray-400" />
-                                </div>
-                                <span className="mt-4 font-bold text-gray-700">Payment Service</span>
-                                <span className="text-xs text-gray-400">Consumer (Slow)</span>
-                            </div>
+                    {/* --- SYNC COLUMN --- */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                        <div className="p-6 bg-red-50 border-b border-red-100">
+                            <h2 className="text-xl font-bold text-red-900 flex items-center">
+                                <Layers className="w-6 h-6 mr-2" />
+                                Synchronous (Blocking)
+                            </h2>
+                            <p className="text-red-700 text-sm mt-1">Checkout waits for Payment to finish.</p>
                         </div>
 
-                        {/* Explanation Box */}
-                        {lastRequestMode && !loading && (
-                            <div className={`mt-12 p-4 rounded-xl border w-full max-w-lg animate-fade-in ${lastRequestMode === 'ASYNC' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
-                                <div className="flex items-start">
-                                    <div className="mr-3 mt-1">
-                                        {lastRequestMode === 'ASYNC' ? <Zap className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                        <div className="p-8 flex-grow flex flex-col items-center justify-center relative min-h-[300px]">
+                            <div className="flex items-center space-x-4 w-full justify-center">
+                                {/* Checkout Service */}
+                                <div className="flex flex-col items-center z-10">
+                                    <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 border-2 ${syncLoading ? 'bg-red-50 border-red-500 scale-105' : 'bg-white border-gray-200'}`}>
+                                        <Server className={`w-10 h-10 ${syncLoading ? 'text-red-500' : 'text-gray-400'}`} />
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold mb-1">
-                                            {lastRequestMode === 'ASYNC' ? 'Instant Response!' : 'Blocked Response'}
-                                        </h4>
-                                        <p className="text-sm leading-relaxed opacity-90">
-                                            {lastRequestMode === 'ASYNC'
-                                                ? "The Checkout Service didn't wait for Payment. It dropped the message in RabbitMQ and replied to you immediately. Payment is processing it in the background."
-                                                : "The Checkout Service was forced to wait 3 seconds for Payment to finish before it could reply to you. This is 'Tight Coupling'."}
-                                        </p>
+                                    <span className="mt-3 font-bold text-gray-700">Checkout</span>
+                                </div>
+
+                                {/* Connection Line */}
+                                <div className="flex-1 max-w-[120px] h-1 bg-gray-100 relative">
+                                    <div className={`absolute inset-0 bg-red-500 transition-all duration-[3000ms] ease-linear ${syncLoading ? 'w-full opacity-100' : 'w-0 opacity-0'}`}></div>
+                                </div>
+
+                                {/* Payment Service */}
+                                <div className="flex flex-col items-center z-10">
+                                    <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 border-2 ${syncLoading ? 'bg-red-50 border-red-500 animate-pulse' : 'bg-white border-gray-200'}`}>
+                                        <Activity className={`w-10 h-10 ${syncLoading ? 'text-red-500' : 'text-gray-400'}`} />
                                     </div>
+                                    <span className="mt-3 font-bold text-gray-700">Payment</span>
                                 </div>
                             </div>
-                        )}
+
+                            {syncLoading && (
+                                <div className="absolute bottom-4 text-red-500 font-mono text-sm animate-pulse">
+                                    Waiting for response... (3s)
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 bg-gray-50">
+                            <button
+                                onClick={handleSyncCheckout}
+                                disabled={syncLoading}
+                                className={`w-full py-4 rounded-xl font-bold text-lg shadow-md transition-all flex items-center justify-center
+                  ${syncLoading
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg'
+                                    }`}
+                            >
+                                {syncLoading ? 'Blocked...' : 'Trigger Sync Checkout'}
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                        <h2 className="text-xl font-bold mb-6 flex items-center">
-                            <Zap className="w-5 h-5 mr-2 text-yellow-500" />
-                            Trigger Request
-                        </h2>
-
-                        <p className="text-gray-600 mb-8 leading-relaxed">
-                            Click the button below to simulate a user checkout.
-                        </p>
-
-                        <button
-                            onClick={handleCheckout}
-                            disabled={loading}
-                            className={`w-full py-4 px-6 rounded-xl font-bold text-lg shadow-lg transform transition-all duration-200 flex items-center justify-center mb-6
-                ${loading
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed scale-95'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.02] hover:shadow-blue-200'
-                                }`}
-                        >
-                            {loading ? 'Processing...' : 'Place Order'}
-                        </button>
-
-                        <div className="mt-auto">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Recent Activity</h3>
-                            <div className="space-y-3">
-                                {logs.slice(0, 3).map((log) => (
-                                    <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                        <div className="flex items-center">
-                                            <div className={`w-2 h-2 rounded-full mr-3 ${log.type === 'ASYNC' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                                            <span className="font-medium text-sm text-gray-700">Order #{log.id.toString().slice(-4)}</span>
-                                        </div>
-                                        <span className={`text-sm font-bold ${log.type === 'ASYNC' ? 'text-blue-600' : 'text-orange-600'}`}>
-                                            {log.duration}ms
-                                        </span>
-                                    </div>
-                                ))}
-                                {logs.length === 0 && <div className="text-center text-gray-400 text-sm py-4">No requests yet</div>}
-                            </div>
+                    {/* --- ASYNC COLUMN --- */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                        <div className="p-6 bg-blue-50 border-b border-blue-100">
+                            <h2 className="text-xl font-bold text-blue-900 flex items-center">
+                                <Zap className="w-6 h-6 mr-2" />
+                                Asynchronous (Non-blocking)
+                            </h2>
+                            <p className="text-blue-700 text-sm mt-1">Checkout sends message and returns instantly.</p>
                         </div>
+
+                        <div className="p-8 flex-grow flex flex-col items-center justify-center relative min-h-[300px]">
+                            <div className="flex items-center space-x-4 w-full justify-center">
+                                {/* Checkout Service */}
+                                <div className="flex flex-col items-center z-10">
+                                    <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 border-2 ${asyncLoading ? 'bg-blue-50 border-blue-500 scale-105' : 'bg-white border-gray-200'}`}>
+                                        <Server className={`w-10 h-10 ${asyncLoading ? 'text-blue-500' : 'text-gray-400'}`} />
+                                    </div>
+                                    <span className="mt-3 font-bold text-gray-700">Checkout</span>
+                                </div>
+
+                                {/* Arrow / Message */}
+                                <div className="flex-1 max-w-[120px] flex items-center justify-center relative">
+                                    {asyncLoading ? (
+                                        <div className="absolute w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-75"></div>
+                                    ) : (
+                                        <ArrowRight className="text-gray-200 w-8 h-8" />
+                                    )}
+                                </div>
+
+                                {/* Queue / RabbitMQ */}
+                                <div className="flex flex-col items-center z-10">
+                                    <div className="w-24 h-24 bg-white border-2 border-gray-200 rounded-2xl flex items-center justify-center shadow-lg">
+                                        <Database className="w-10 h-10 text-orange-500" />
+                                    </div>
+                                    <span className="mt-3 font-bold text-gray-700">Message Queue</span>
+                                </div>
+                            </div>
+
+                            {asyncLoading && (
+                                <div className="absolute bottom-4 text-blue-500 font-mono text-sm">
+                                    Message Sent! (Instant)
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 bg-gray-50">
+                            <button
+                                onClick={handleAsyncCheckout}
+                                disabled={asyncLoading}
+                                className={`w-full py-4 rounded-xl font-bold text-lg shadow-md transition-all flex items-center justify-center
+                  ${asyncLoading
+                                        ? 'bg-blue-400 text-white cursor-default'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
+                                    }`}
+                            >
+                                {asyncLoading ? 'Sent!' : 'Trigger Async Checkout'}
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* Logs */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 className="font-bold text-lg flex items-center text-gray-700">
+                            <Clock className="w-5 h-5 mr-2 text-gray-400" />
+                            Performance Log
+                        </h3>
+                        <span className="text-xs font-medium px-2 py-1 bg-gray-200 rounded-full text-gray-600">{logs.length} requests</span>
+                    </div>
+
+                    <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
+                        {logs.length === 0 && (
+                            <div className="p-12 text-center text-gray-400 italic">
+                                No requests yet. Try both buttons above!
+                            </div>
+                        )}
+                        {logs.map((log) => (
+                            <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                                <div className="flex items-center space-x-4">
+                                    <div className={`p-2 rounded-full ${log.status === 'SUCCESS' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                        {log.status === 'SUCCESS' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-gray-900">Order #{log.id.toString().slice(-6)}</div>
+                                        <div className="text-xs text-gray-400">{log.timestamp}</div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-6">
+                                    <div className="text-right">
+                                        <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Latency</div>
+                                        <div className={`font-mono font-bold text-lg ${log.type === 'SYNC' ? 'text-red-600' : 'text-blue-600'}`}>
+                                            {log.duration}ms
+                                        </div>
+                                    </div>
+
+                                    <div className={`w-24 text-center px-3 py-1 rounded-full text-xs font-bold tracking-wide ${log.type === 'SYNC'
+                                            ? 'bg-red-100 text-red-700'
+                                            : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                        {log.type}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

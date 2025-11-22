@@ -59,8 +59,22 @@ Check the logs to see the payment processing happening in the background:
 docker-compose -f docker-compose.async.yml logs -f payment-service
 ```
 
+### 3. Side-by-Side Mode (The "Showdown")
+Run both stacks simultaneously and compare them in a split-screen UI.
+
+```bash
+docker-compose -f docker-compose.combined.yml up --build
+```
+
+**Test it:**
+- Open **http://localhost:3000**
+- Click **"Trigger Sync Checkout"** (Left) -> Watch it block.
+- Click **"Trigger Async Checkout"** (Right) -> Watch it fly.
+
 ## 📂 Project Structure
 - `services/checkout`: FastAPI app (Producer in Async mode)
 - `services/payment`: FastAPI app (Consumer in Async mode)
+- `frontend`: React Dashboard
 - `docker-compose.yml`: Sync configuration
-- `docker-compose.async.yml`: Async configuration with RabbitMQ
+- `docker-compose.async.yml`: Async configuration
+- `docker-compose.combined.yml`: Side-by-Side configuration
