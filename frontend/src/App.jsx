@@ -1,6 +1,173 @@
 import React, { useState } from 'react';
 import { Activity, Server, ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, Database, Layers } from 'lucide-react';
 
+function ExpandableConcept({ title, icon: Icon, color, children }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const colorClasses = {
+        red: 'text-red-900 bg-red-50 hover:bg-red-100 border-red-100',
+        blue: 'text-blue-900 bg-blue-50 hover:bg-blue-100 border-blue-100',
+        gray: 'text-gray-900 bg-gray-50 hover:bg-gray-100 border-gray-100'
+    };
+
+    return (
+        <div className={`border rounded-xl overflow-hidden transition-all duration-300 ${isOpen ? 'shadow-md' : 'shadow-sm'} ${colorClasses[color].replace('text-', 'border-').split(' ')[3]}`}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full p-4 flex items-center justify-between text-left ${colorClasses[color]}`}
+            >
+                <div className="flex items-center font-bold">
+                    <Icon className={`w-5 h-5 mr-3 ${color === 'red' ? 'text-red-600' : color === 'blue' ? 'text-blue-600' : 'text-gray-600'}`} />
+                    {title}
+                </div>
+                {isOpen ? <div className="text-xs font-bold uppercase tracking-wider opacity-50">Close</div> : <div className="text-xs font-bold uppercase tracking-wider opacity-50">Learn More</div>}
+            </button>
+            {isOpen && (
+                <div className="p-4 bg-white text-sm text-gray-600 leading-relaxed border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ArchitectureWizard() {
+    const [step, setStep] = useState(0);
+    const [answers, setAnswers] = useState({});
+
+    const questions = [
+        {
+            id: 'immediate',
+            text: "Does the user need the result IMMEDIATELY to continue?",
+            subtext: "Example: Logging in, Searching, Loading a profile.",
+            options: [
+                { label: "Yes, they are blocked", value: 'sync' },
+                { label: "No, they can wait", value: 'async' }
+            ]
+        },
+        {
+            id: 'duration',
+            text: "How long does the task usually take?",
+            subtext: "Estimate the processing time.",
+            options: [
+                { label: "Under 300ms (Fast)", value: 'sync' },
+                { label: "Over 300ms (Slow)", value: 'async' }
+            ]
+        },
+        {
+            id: 'criticality',
+            text: "What happens if the service crashes?",
+            subtext: "Is data loss acceptable?",
+            options: [
+                { label: "User retries (It's fine)", value: 'sync' },
+                { label: "Must process eventually (Critical)", value: 'async' }
+            ]
+        }
+    ];
+
+    const handleAnswer = (value) => {
+        const newAnswers = { ...answers, [questions[step].id]: value };
+        setAnswers(newAnswers);
+        if (step < questions.length - 1) {
+            setStep(step + 1);
+        } else {
+            setStep('result');
+        }
+    };
+
+    const reset = () => {
+        setStep(0);
+        setAnswers({});
+    };
+
+    const getResult = () => {
+        const syncScore = Object.values(answers).filter(a => a === 'sync').length;
+        if (answers.immediate === 'sync') return 'SYNC'; // Hard requirement
+        if (syncScore > 1) return 'SYNC';
+        return 'ASYNC';
+    };
+
+    if (step === 'result') {
+        const result = getResult();
+        return (
+            <div className="bg-gray-800 text-white p-8 rounded-xl text-center animate-in zoom-in duration-300">
+                <div className="mb-4">
+                    {result === 'SYNC' ? <Layers className="w-16 h-16 mx-auto text-red-400" /> : <Zap className="w-16 h-16 mx-auto text-blue-400" />}
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Recommendation: {result === 'SYNC' ? 'Synchronous' : 'Asynchronous'}</h3>
+                <p className="text-gray-300 mb-6">
+                    {result === 'SYNC'
+                        ? "Your user needs an immediate answer. Keep it simple and block until done."
+                        : "Your task is slow or non-critical to the immediate flow. Offload it to a queue!"}
+                </p>
+                <button onClick={reset} className="bg-white text-gray-900 px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition-colors">
+                    Start Over
+                </button>
+            </div>
+        );
+    }
+
+    const question = questions[step];
+
+    return (
+        <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm min-h-[300px] flex flex-col justify-center">
+            <div className="mb-8">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Question {step + 1} of 3</span>
+                <h3 className="text-xl font-bold text-gray-900 mt-2">{question.text}</h3>
+                <p className="text-gray-500 mt-1">{question.subtext}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+                {question.options.map((opt) => (
+                    <button
+                        key={opt.label}
+                        onClick={() => handleAnswer(opt.value)}
+                        className="p-4 border-2 border-gray-100 rounded-xl hover:border-blue-500 hover:bg-blue-50 text-left transition-all group"
+                    >
+                        <span className="font-bold text-gray-700 group-hover:text-blue-700">{opt.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function ComparisonTable() {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+                <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th className="px-6 py-3">Metric</th>
+                        <th className="px-6 py-3 text-red-700">Synchronous</th>
+                        <th className="px-6 py-3 text-blue-700">Asynchronous</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    <tr className="bg-white">
+                        <td className="px-6 py-4 font-medium text-gray-900">User Experience</td>
+                        <td className="px-6 py-4 text-gray-600">Waits for completion (Blocked)</td>
+                        <td className="px-6 py-4 text-gray-600">Instant "Accepted" (Non-blocking)</td>
+                    </tr>
+                    <tr className="bg-white">
+                        <td className="px-6 py-4 font-medium text-gray-900">Complexity</td>
+                        <td className="px-6 py-4 text-gray-600">Low (Easy to debug)</td>
+                        <td className="px-6 py-4 text-gray-600">Medium (Requires Broker & Workers)</td>
+                    </tr>
+                    <tr className="bg-white">
+                        <td className="px-6 py-4 font-medium text-gray-900">Failure Handling</td>
+                        <td className="px-6 py-4 text-gray-600">Fails immediately (User sees error)</td>
+                        <td className="px-6 py-4 text-gray-600">Retries in background (Resilient)</td>
+                    </tr>
+                    <tr className="bg-white">
+                        <td className="px-6 py-4 font-medium text-gray-900">Scalability</td>
+                        <td className="px-6 py-4 text-gray-600">Limited by thread pool</td>
+                        <td className="px-6 py-4 text-gray-600">High (Buffer absorbs spikes)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 function App() {
     const [logs, setLogs] = useState([]);
     const [syncLoading, setSyncLoading] = useState(false);
@@ -277,14 +444,14 @@ function App() {
                         </div>
 
                         <div className="space-y-3">
-                            <div className="flex items-start">
-                                <div className="bg-red-100 p-1 rounded mt-1 mr-3"><Clock className="w-3 h-3 text-red-600" /></div>
-                                <p className="text-sm text-gray-600"><strong>Cascading Latency:</strong> The user waits for the <em>sum</em> of all service times.</p>
-                            </div>
-                            <div className="flex items-start">
-                                <div className="bg-red-100 p-1 rounded mt-1 mr-3"><AlertCircle className="w-3 h-3 text-red-600" /></div>
-                                <p className="text-sm text-gray-600"><strong>Tight Coupling:</strong> If Payment fails, Checkout fails.</p>
-                            </div>
+                            <ExpandableConcept title="Cascading Latency" icon={Clock} color="red">
+                                <p className="mb-2"><strong>The Problem:</strong> In a sync chain (A calls B calls C), the total wait time is the <em>sum</em> of all service times. If C is slow, A is slow.</p>
+                                <p className="italic text-red-700 bg-red-50 p-2 rounded">"It's like being stuck in traffic behind a broken-down car. Everyone behind it stops too."</p>
+                            </ExpandableConcept>
+                            <ExpandableConcept title="Tight Coupling" icon={AlertCircle} color="red">
+                                <p className="mb-2"><strong>The Problem:</strong> Services are physically connected. If Payment crashes, Checkout throws an error immediately.</p>
+                                <p className="italic text-red-700 bg-red-50 p-2 rounded">"It's like a three-legged race. If your partner trips, you faceplant."</p>
+                            </ExpandableConcept>
                         </div>
                     </div>
 
@@ -343,14 +510,14 @@ function App() {
                         </div>
 
                         <div className="space-y-3">
-                            <div className="flex items-start">
-                                <div className="bg-blue-100 p-1 rounded mt-1 mr-3"><Zap className="w-3 h-3 text-blue-600" /></div>
-                                <p className="text-sm text-gray-600"><strong>Non-Blocking:</strong> User gets instant response. Work happens later.</p>
-                            </div>
-                            <div className="flex items-start">
-                                <div className="bg-blue-100 p-1 rounded mt-1 mr-3"><Layers className="w-3 h-3 text-blue-600" /></div>
-                                <p className="text-sm text-gray-600"><strong>Decoupled:</strong> Queue absorbs spikes. Worker processes at its own pace.</p>
-                            </div>
+                            <ExpandableConcept title="Non-Blocking I/O" icon={Zap} color="blue">
+                                <p className="mb-2"><strong>The Benefit:</strong> The server hands off the work and immediately returns to help the next user. It never waits.</p>
+                                <p className="italic text-blue-700 bg-blue-50 p-2 rounded">"It's like dropping a letter in the mailbox. You don't stand there waiting for the mailman to deliver it."</p>
+                            </ExpandableConcept>
+                            <ExpandableConcept title="Load Leveling" icon={Layers} color="blue">
+                                <p className="mb-2"><strong>The Benefit:</strong> If traffic spikes, the Queue absorbs it. The worker processes at a safe, steady pace.</p>
+                                <p className="italic text-blue-700 bg-blue-50 p-2 rounded">"It's like a dam. The reservoir (Queue) holds the flood, letting water (requests) through safely."</p>
+                            </ExpandableConcept>
                         </div>
                     </div>
                 </div>
@@ -364,60 +531,24 @@ function App() {
                             The Decision Matrix: When to use what?
                         </h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
-                        {/* Sync Scenarios */}
-                        <div className="p-8">
-                            <h4 className="font-bold text-red-900 mb-4 flex items-center">
-                                <Layers className="w-5 h-5 mr-2" />
-                                Use Synchronous When...
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+                        {/* Interactive Wizard */}
+                        <div className="p-8 lg:col-span-1 bg-gray-50">
+                            <h4 className="font-bold text-gray-900 mb-6 flex items-center">
+                                <Activity className="w-5 h-5 mr-2 text-purple-600" />
+                                Architecture Wizard
                             </h4>
-                            <ul className="space-y-4">
-                                <li className="flex items-start">
-                                    <div className="bg-red-100 p-1 rounded mr-3 mt-1"><CheckCircle2 className="w-3 h-3 text-red-600" /></div>
-                                    <div>
-                                        <strong className="block text-gray-900 text-sm">You need an immediate answer</strong>
-                                        <p className="text-xs text-gray-500">e.g., User Login (Password correct?), Search Results.</p>
-                                    </div>
-                                </li>
-                                <li className="flex items-start">
-                                    <div className="bg-red-100 p-1 rounded mr-3 mt-1"><CheckCircle2 className="w-3 h-3 text-red-600" /></div>
-                                    <div>
-                                        <strong className="block text-gray-900 text-sm">Simplicity is priority</strong>
-                                        <p className="text-xs text-gray-500">For MVPs and internal tools, async adds complexity you might not need yet.</p>
-                                    </div>
-                                </li>
-                            </ul>
+                            <ArchitectureWizard />
                         </div>
 
-                        {/* Async Scenarios */}
-                        <div className="p-8 bg-blue-50/30">
-                            <h4 className="font-bold text-blue-900 mb-4 flex items-center">
-                                <Database className="w-5 h-5 mr-2" />
-                                Use Asynchronous When...
+                        {/* Comparison Table */}
+                        <div className="p-8 lg:col-span-2">
+                            <h4 className="font-bold text-gray-900 mb-6 flex items-center">
+                                <Layers className="w-5 h-5 mr-2 text-gray-600" />
+                                Quick Comparison Cheat Sheet
                             </h4>
-                            <ul className="space-y-4">
-                                <li className="flex items-start">
-                                    <div className="bg-blue-100 p-1 rounded mr-3 mt-1"><CheckCircle2 className="w-3 h-3 text-blue-600" /></div>
-                                    <div>
-                                        <strong className="block text-gray-900 text-sm">The task takes &gt; 500ms</strong>
-                                        <p className="text-xs text-gray-500">e.g., Sending Emails, Generating PDFs, Video Processing.</p>
-                                    </div>
-                                </li>
-                                <li className="flex items-start">
-                                    <div className="bg-blue-100 p-1 rounded mr-3 mt-1"><CheckCircle2 className="w-3 h-3 text-blue-600" /></div>
-                                    <div>
-                                        <strong className="block text-gray-900 text-sm">You need Fault Tolerance</strong>
-                                        <p className="text-xs text-gray-500">If the Email service is down, the message waits in the queue. No data lost.</p>
-                                    </div>
-                                </li>
-                                <li className="flex items-start">
-                                    <div className="bg-blue-100 p-1 rounded mr-3 mt-1"><CheckCircle2 className="w-3 h-3 text-blue-600" /></div>
-                                    <div>
-                                        <strong className="block text-gray-900 text-sm">Write-Heavy Traffic</strong>
-                                        <p className="text-xs text-gray-500">Ingesting 1M IoT sensor readings? Queue them up and process later.</p>
-                                    </div>
-                                </li>
-                            </ul>
+                            <ComparisonTable />
                         </div>
                     </div>
                 </div>

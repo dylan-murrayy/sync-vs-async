@@ -118,6 +118,8 @@ def checkout(order):
 
 ## Run the Demo (The Showdown)
 
+![Dashboard Home](frontend/images/home.png)
+
 We've built a special **Side-by-Side Mode** that runs both architectures at the same time so you can race them.
 
 ### 1. Start the Stack
@@ -138,19 +140,9 @@ Go to **http://localhost:3000**
 
 ---
 
-## Project Structure
-Build this yourself! Here are the files you need:
-
-| Service | Description | Key Tech |
-| :--- | :--- | :--- |
-| **`services/checkout`** | The entry point. Handles user requests. | Python, FastAPI, Pika |
-| **`services/payment`** | The worker. Processes payments (slowly). | Python, FastAPI, Pika |
-| **`frontend`** | The visualization dashboard. | React, Vite, Tailwind |
-| **`docker-compose.combined.yml`** | The magic that runs everything together. | Docker Compose |
-
----
-
 ## Under the Hood Concepts
+
+![Under the Hood](frontend/images/Under-the-hood.png)
 
 ### Resource Exhaustion
 In the Sync model, every waiting request holds a thread or connection open. If you have 1000 users, you need 1000 threads. In Async, you can handle 1000 users with just a few threads because you aren't waiting.
@@ -159,3 +151,35 @@ In the Sync model, every waiting request holds a thread or connection open. If y
 If 1000 orders come in at once:
 *   **Sync**: Your Payment service crashes under the load.
 *   **Async**: The Queue fills up. The Payment service processes them one by one at its own pace. The system survives.
+
+---
+
+## 🧠 The Decision Matrix
+
+![Decision Matrix](frontend/images/decision-matrix.png)
+
+| Feature | Synchronous (HTTP) | Asynchronous (Queues) |
+| :--- | :--- | :--- |
+| **Latency** | **High** (Additive: A + B + C) | **Low** (Constant: A only) |
+| **Coupling** | **Tight** (If B fails, A fails) | **Loose** (If B fails, A is fine) |
+| **Complexity** | **Low** (Easy to trace) | **Medium** (Requires Broker) |
+| **Best For** | Login, Search, GET requests | Emails, Reports, Heavy Processing |
+
+---
+
+## 📚 Glossary of Terms
+
+---
+
+## 📚 Glossary of Terms
+
+| Term | Definition | Analogy |
+| :--- | :--- | :--- |
+| **Message Broker** | The system that manages queues and exchanges (RabbitMQ). | **The Post Office** (Receives, sorts, and holds mail). |
+| **Producer** | The service that sends the message (Checkout). | The customer dropping a letter in the mailbox. |
+| **Consumer** | The service that processes the message (Payment). | The mail carrier delivering the letter. |
+| **Message Queue** | A buffer that holds messages until they can be processed. | The line of ticket orders at the counter. |
+| **Exchange** | The post office that routes messages to the correct queue. | The mail sorting center. |
+| **Backpressure** | The ability to say "I'm full, stop sending" (or buffering). | A dam holding back a flood. |
+| **Idempotency** | Handling the same message twice without side effects. | Pressing "Call Elevator" 10 times doesn't send 10 elevators. |
+| **Ack (Acknowledgement)** | The signal that a message was successfully processed. | Signing for a package delivery. |
