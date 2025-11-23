@@ -19,8 +19,6 @@ By building and running this project, you will understand:
 
 ---
 
----
-
 ## 📖 The Story of Scaling: When to Switch?
 
 Imagine you are building **"TicketMaster for Hamsters"**.
@@ -30,20 +28,20 @@ You build everything **Synchronously**.
 *   User clicks "Buy Ticket".
 *   Server calls Bank API (3s).
 *   Server calls Email API (2s).
-*   User waits 5 seconds. 😴
+*   User waits 5 seconds. 
 *   **Verdict**: It's fine. It's simple. It works.
 
 ### Phase 2: The Viral Hit (10,000 Users)
 Your site goes viral. 10,000 people try to buy tickets at once.
 *   Your server has 50 threads.
 *   All 50 threads are stuck waiting for the Bank API.
-*   User #51 gets a "Connection Refused" error. 💥
+*   User #51 gets a "Connection Refused" error. 
 *   **The Problem**: Your app isn't doing work; it's just *waiting*.
 
 ### Phase 3: The Async Revolution
 You switch to **Asynchronous** queues.
 *   User clicks "Buy Ticket".
-*   Server says "Request Received!" (Instant). ⚡️
+*   Server says "Request Received!" (Instant). 
 *   Server puts a message in RabbitMQ.
 *   Worker process handles the Bank and Email in the background.
 *   **Verdict**: Your server can handle 10,000 requests/second because it never waits.
@@ -154,7 +152,7 @@ If 1000 orders come in at once:
 
 ---
 
-## 🧠 The Decision Matrix
+## The Decision Matrix
 
 ![Decision Matrix](images/decision-matrix.png)
 
@@ -165,9 +163,6 @@ If 1000 orders come in at once:
 | **Complexity** | **Low** (Easy to trace) | **Medium** (Requires Broker) |
 | **Best For** | Login, Search, GET requests | Emails, Reports, Heavy Processing |
 
----
-
-## 📚 Glossary of Terms
 
 ---
 
